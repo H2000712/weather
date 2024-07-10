@@ -1,0 +1,53 @@
+* {
+	padding: 0;
+}
+
+.hd {
+	text-align: center;
+	font-size: 24px;
+	font-weight: 600;
+	padding: 20px 0;
+}
+
+.days {
+	display: flex;
+	justify-content: space-evenly;
+}
+.day {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.day-item {
+	padding: 10px 0;
+}
+
+.day-item:nth-child(1) {
+	padding: 10px 0;
+	color: black;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 1rem;
+	letter-spacing: 1px;
+	margin-top: 30px;
+}
+
+td {
+	border: 1px solid rgb(228, 228, 228);
+	padding: 8px 10px;
+	text-align: center;
+}
+
+.updateTime {
+	width: 100%;
+	text-align: right;
+	color: rgb(172, 172, 172);
+	font-size: 14px;
+	margin-top: 20px;
+}
