@@ -1,4 +1,292 @@
 <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>迷宫游戏</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .btn {
+            width: 15vmin;
+            height: 15vmin;
+            max-width: 80px;
+            max-height: 80px;
+            margin: 1vmin;
+            font-size: 5vmin;
+            border: none;
+            border-radius: 50%;
+            background-color: rgba(255,255,255,0.3);
+            color: white;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            background-color: rgba(255,255,255,0.5);
+        }
+        #functionArea {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: center;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+        }
+        #modal button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 4vmin;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">
+        <button id="upBtn" class="btn">↑</button>
+        <div>
+            <button id="leftBtn" class="btn">←</button>
+            <button id="downBtn" class="btn">↓</button>
+            <button id="rightBtn" class="btn">→</button>
+        </div>
+    </div>
+    <div id="functionArea">
+        <button id="pauseBtn" class="btn">||</button>
+    </div>
+    <div id="modal">
+        <h2 id="modalTitle"></h2>
+        <button id="resetBtn">回起点</button>
+        <button id="nextBtn">下一关</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modalTitle');
+        const resetBtn = document.getElementById('resetBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        let player, maze, cellSize, startCell, endCell;
+        let level = 1;
+        let gameState = 'playing'; // 'playing', 'paused', 'completed'
+        let moveInterval = null;
+        let currentMove = null;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // 计算迷宫的宽度和高度
+            const mazeWidth = Math.floor(canvas.width / 20);
+            const mazeHeight = Math.floor(canvas.height / 20);
+            
+            // 计算单元格大小
+            cellSize = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight);
+            
+            initLevel(mazeWidth, mazeHeight);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function initLevel(width, height) {
+            maze = generateMaze(width, height);
+            startCell = {x: 1, y: 1};
+            endCell = {x: width - 2, y: height - 2};
+            player = {...startCell};
+        }
+
+        function generateMaze(width, height) {
+            const maze = Array(height).fill().map(() => Array(width).fill(1));
+            const stack = [{x: 1, y: 1}];
+            maze[1][1] = 0;
+
+            while (stack.length > 0) {
+                const current = stack.pop();
+                const neighbors = [
+                    {x: current.x + 2, y: current.y},
+                    {x: current.x - 2, y: current.y},
+                    {x: current.x, y: current.y + 2},
+                    {x: current.x, y: current.y - 2}
+                ].filter(n => n.x > 0 && n.x < width - 1 && n.y > 0 && n.y < height - 1 && maze[n.y][n.x] === 1);
+
+                if (neighbors.length > 0) {
+                    stack.push(current);
+                    const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    maze[chosen.y][chosen.x] = 0;
+                    maze[current.y + (chosen.y - current.y) / 2][current.x + (chosen.x - current.x) / 2] = 0;
+                    stack.push(chosen);
+                }
+            }
+
+            return maze;
+        }
+
+        function drawMaze() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < maze.length; y++) {
+                for (let x = 0; x < maze[y].length; x++) {
+                    if (maze[y][x] === 1) {
+                        ctx.fillStyle = '#333';
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+
+            drawGlow(startCell.x * cellSize + cellSize / 2, startCell.y * cellSize + cellSize / 2, '#fff');
+            drawGlow(endCell.x * cellSize + cellSize / 2, endCell.y * cellSize + cellSize / 2, '#fff');
+            drawGlow(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, '#0f0');
+        }
+
+        function drawGlow(x, y, color) {
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, cellSize / 2);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, cellSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function movePlayer(dx, dy) {
+            if (gameState !== 'playing') return;
+
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+
+            if (newX >= 0 && newX < maze[0].length && newY >= 0 && newY < maze.length && maze[newY][newX] === 0) {
+                player.x = newX;
+                player.y = newY;
+
+                if (player.x === endCell.x && player.y === endCell.y) {
+                    completeLevel();
+                }
+            }
+        }
+
+        function startMove(dx, dy) {
+            if (moveInterval) clearInterval(moveInterval);
+            currentMove = {dx, dy};
+            movePlayer(dx, dy);
+            moveInterval = setInterval(() => movePlayer(dx, dy), 150);
+        }
+
+        function stopMove() {
+            if (moveInterval) {
+                clearInterval(moveInterval);
+                moveInterval = null;
+            }
+            currentMove = null;
+        }
+
+        function completeLevel() {
+            gameState = 'completed';
+            modalTitle.textContent = `第 ${level} 关完成！`;
+            modal.style.display = 'block';
+        }
+
+        function resetLevel() {
+            player = {...startCell};
+            gameState = 'playing';
+            modal.style.display = 'none';
+        }
+
+        function nextLevel() {
+            level++;
+            resizeCanvas(); // 每关重新调整迷宫大小
+            gameState = 'playing';
+            modal.style.display = 'none';
+        }
+
+        function togglePause() {
+            if (gameState === 'playing') {
+                gameState = 'paused';
+                modalTitle.textContent = '功能';
+                modal.style.display = 'block';
+            } else if (gameState === 'paused') {
+                gameState = 'playing';
+                modal.style.display = 'none';
+            }
+        }
+
+        function gameLoop() {
+            drawMaze();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.getElementById('upBtn').addEventListener('touchstart', () => startMove(0, -1));
+        document.getElementById('downBtn').addEventListener('touchstart', () => startMove(0, 1));
+        document.getElementById('leftBtn').addEventListener('touchstart', () => startMove(-1, 0));
+        document.getElementById('rightBtn').addEventListener('touchstart', () => startMove(1, 0));
+
+        document.getElementById('upBtn').addEventListener('mousedown', () => startMove(0, -1));
+        document.getElementById('downBtn').addEventListener('mousedown', () => startMove(0, 1));
+        document.getElementById('leftBtn').addEventListener('mousedown', () => startMove(-1, 0));
+        document.getElementById('rightBtn').addEventListener('mousedown', () => startMove(1, 0));
+
+        document.addEventListener('touchend', stopMove);
+        document.addEventListener('mouseup', stopMove);
+
+        pauseBtn.addEventListener('click', togglePause);
+        resetBtn.addEventListener('click', resetLevel);
+        nextBtn.addEventListener('click', nextLevel);
+
+        document.addEventListener('keydown', (e) => {
+            if (currentMove) return;
+            switch(e.key) {
+                case 'ArrowUp': startMove(0, -1); break;
+                case 'ArrowDown': startMove(0, 1); break;
+                case 'ArrowLeft': startMove(-1, 0); break;
+                case 'ArrowRight': startMove(1, 0); break;
+                case ' ': togglePause(); break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                stopMove();
+            }
+        });
+
+        resizeCanvas(); // 初始化迷宫
+        gameLoop();
+    </script>
+</body>
+</html>
+
+<!-- 
 				<html lang="en">
 				<head>
 				<meta charset="UTF-8">
@@ -1021,4 +1309,4 @@
 				<div class="updateTime">更新时间: 2024-07-10 17:11:59</div>
 				<script src="./js/document.js"></script>
 				</body>
-				</html>
+				</html> -->
