@@ -11,6 +11,7 @@
             height: 100%;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            user-select: none;
         }
         #gameCanvas {
             display: block;
@@ -26,6 +27,10 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+        }
+        .btn-row {
+            display: flex;
+            justify-content: center;
         }
         .btn {
             width: 15vmin;
@@ -66,16 +71,24 @@
             padding: 10px 20px;
             font-size: 4vmin;
         }
+        #difficultySelect {
+            margin-top: 10px;
+            font-size: 4vmin;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="controls">
-        <button id="upBtn" class="btn">↑</button>
-        <div>
+        <div class="btn-row">
+            <button id="upBtn" class="btn">↑</button>
+        </div>
+        <div class="btn-row">
             <button id="leftBtn" class="btn">←</button>
-            <button id="downBtn" class="btn">↓</button>
             <button id="rightBtn" class="btn">→</button>
+        </div>
+        <div class="btn-row">
+            <button id="downBtn" class="btn">↓</button>
         </div>
     </div>
     <div id="functionArea">
@@ -85,6 +98,14 @@
         <h2 id="modalTitle"></h2>
         <button id="resetBtn">回起点</button>
         <button id="nextBtn">下一关</button>
+        <div>
+            <label for="difficultySelect">难度：</label>
+            <select id="difficultySelect">
+                <option value="easy">简单</option>
+                <option value="normal" selected>普通</option>
+                <option value="hard">困难</option>
+            </select>
+        </div>
     </div>
 
     <script>
@@ -95,34 +116,47 @@
         const resetBtn = document.getElementById('resetBtn');
         const nextBtn = document.getElementById('nextBtn');
         const pauseBtn = document.getElementById('pauseBtn');
+        const difficultySelect = document.getElementById('difficultySelect');
 
         let player, maze, cellSize, startCell, endCell;
         let level = 1;
         let gameState = 'playing'; // 'playing', 'paused', 'completed'
         let moveInterval = null;
         let currentMove = null;
+        let difficulty = 'normal';
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             
-            // 计算迷宫的宽度和高度
-            const mazeWidth = Math.floor(canvas.width / 20);
-            const mazeHeight = Math.floor(canvas.height / 20);
-            
-            // 计算单元格大小
-            cellSize = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight);
-            
-            initLevel(mazeWidth, mazeHeight);
+            initLevel();
         }
 
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        function initLevel(width, height) {
-            maze = generateMaze(width, height);
+        function initLevel() {
+            let mazeWidth, mazeHeight;
+            switch (difficulty) {
+                case 'easy':
+                    mazeWidth = Math.floor(canvas.width / 30);
+                    mazeHeight = Math.floor(canvas.height / 30);
+                    break;
+                case 'normal':
+                    mazeWidth = Math.floor(canvas.width / 25);
+                    mazeHeight = Math.floor(canvas.height / 25);
+                    break;
+                case 'hard':
+                    mazeWidth = Math.floor(canvas.width / 20);
+                    mazeHeight = Math.floor(canvas.height / 20);
+                    break;
+            }
+            
+            cellSize = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight);
+            
+            maze = generateMaze(mazeWidth, mazeHeight);
             startCell = {x: 1, y: 1};
-            endCell = {x: width - 2, y: height - 2};
+            endCell = {x: mazeWidth - 2, y: mazeHeight - 2};
             player = {...startCell};
         }
 
@@ -156,27 +190,30 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            const offsetX = (canvas.width - maze[0].length * cellSize) / 2;
+            const offsetY = (canvas.height - maze.length * cellSize) / 2;
+
             for (let y = 0; y < maze.length; y++) {
                 for (let x = 0; x < maze[y].length; x++) {
                     if (maze[y][x] === 1) {
                         ctx.fillStyle = '#333';
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        ctx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
                     }
                 }
             }
 
-            drawGlow(startCell.x * cellSize + cellSize / 2, startCell.y * cellSize + cellSize / 2, '#fff');
-            drawGlow(endCell.x * cellSize + cellSize / 2, endCell.y * cellSize + cellSize / 2, '#fff');
-            drawGlow(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, '#0f0');
+            drawGlow(offsetX + startCell.x * cellSize + cellSize / 2, offsetY + startCell.y * cellSize + cellSize / 2, '#fff');
+            drawGlow(offsetX + endCell.x * cellSize + cellSize / 2, offsetY + endCell.y * cellSize + cellSize / 2, '#fff');
+            drawGlow(offsetX + player.x * cellSize + cellSize / 2, offsetY + player.y * cellSize + cellSize / 2, '#0f0');
         }
 
         function drawGlow(x, y, color) {
-            const gradient = ctx.createRadialGradient(x, y, 0, x, y, cellSize / 2);
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, cellSize);
             gradient.addColorStop(0, color);
             gradient.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(x, y, cellSize / 2, 0, Math.PI * 2);
+            ctx.arc(x, y, cellSize, 0, Math.PI * 2);
             ctx.fill();
         }
 
@@ -225,7 +262,7 @@
 
         function nextLevel() {
             level++;
-            resizeCanvas(); // 每关重新调整迷宫大小
+            initLevel();
             gameState = 'playing';
             modal.style.display = 'none';
         }
@@ -263,6 +300,11 @@
         resetBtn.addEventListener('click', resetLevel);
         nextBtn.addEventListener('click', nextLevel);
 
+        difficultySelect.addEventListener('change', (e) => {
+            difficulty = e.target.value;
+            initLevel();
+        });
+
         document.addEventListener('keydown', (e) => {
             if (currentMove) return;
             switch(e.key) {
@@ -280,1033 +322,7 @@
             }
         });
 
-        resizeCanvas(); // 初始化迷宫
         gameLoop();
     </script>
 </body>
 </html>
-
-<!-- 
-				<html lang="en">
-				<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<link rel="stylesheet" href="./css/index.css" />
-				<title>太原7天天气预报1</title>
-				</head>
-				<body>
-     <div class="hp">
-      <div class="hd">
-       7天天气预报123（2024/07/10 20:00发布）
-      </div>
-      <div id="dayList" class="row hb days " style="padding-bottom:0;">
-       <div class="pull-left day actived">
-        <div class="day-item">
-         星期三
-         <br>07/10
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w0.png">
-        </div>
-        <div class="day-item">
-         晴
-        </div>
-        <div class="day-item">
-         南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:1px; bottom:0px;">
-          <div class="high">
-           31℃
-          </div>
-          <div class="low">
-           17℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w0.png">
-        </div>
-        <div class="day-item">
-         晴
-        </div>
-        <div class="day-item">
-         西南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-       <div class="pull-left day ">
-        <div class="day-item">
-         星期四
-         <br>07/11
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w7.png">
-        </div>
-        <div class="day-item">
-         小雨
-        </div>
-        <div class="day-item">
-         南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:0px; bottom:1px;">
-          <div class="high">
-           32℃
-          </div>
-          <div class="low">
-           16℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w1.png">
-        </div>
-        <div class="day-item">
-         多云
-        </div>
-        <div class="day-item">
-         东风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-       <div class="pull-left day ">
-        <div class="day-item">
-         星期五
-         <br>07/12
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w7.png">
-        </div>
-        <div class="day-item">
-         小雨
-        </div>
-        <div class="day-item">
-         西北风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:4px; bottom:2px;">
-          <div class="high">
-           28℃
-          </div>
-          <div class="low">
-           15℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w1.png">
-        </div>
-        <div class="day-item">
-         多云
-        </div>
-        <div class="day-item">
-         西风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-       <div class="pull-left day ">
-        <div class="day-item">
-         星期六
-         <br>07/13
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w0.png">
-        </div>
-        <div class="day-item">
-         晴
-        </div>
-        <div class="day-item">
-         东南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:2px; bottom:1px;">
-          <div class="high">
-           30℃
-          </div>
-          <div class="low">
-           16℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w1.png">
-        </div>
-        <div class="day-item">
-         多云
-        </div>
-        <div class="day-item">
-         南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-       <div class="pull-left day ">
-        <div class="day-item">
-         星期日
-         <br>07/14
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w1.png">
-        </div>
-        <div class="day-item">
-         多云
-        </div>
-        <div class="day-item">
-         南风
-        </div>
-        <div class="day-item">
-         3~4级
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:3px; bottom:2px;">
-          <div class="high">
-           29℃
-          </div>
-          <div class="low">
-           15℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w8.png">
-        </div>
-        <div class="day-item">
-         中雨
-        </div>
-        <div class="day-item">
-         西南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-       <div class="pull-left day ">
-        <div class="day-item">
-         星期一
-         <br>07/15
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w8.png">
-        </div>
-        <div class="day-item">
-         中雨
-        </div>
-        <div class="day-item">
-         南风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:8px; bottom:3px;">
-          <div class="high">
-           24℃
-          </div>
-          <div class="low">
-           14℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w0.png">
-        </div>
-        <div class="day-item">
-         晴
-        </div>
-        <div class="day-item">
-         东北风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-       <div class="pull-left day ">
-        <div class="day-item">
-         星期二
-         <br>07/16
-        </div>
-        <div class="day-item dayicon">
-         <img src="/static/img/w/icon/w0.png">
-        </div>
-        <div class="day-item">
-         晴
-        </div>
-        <div class="day-item">
-         东风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-        <div class="day-item bardiv">
-         <div class="bar" style="top:7px; bottom:2px;">
-          <div class="high">
-           25℃
-          </div>
-          <div class="low">
-           15℃
-          </div>
-         </div>
-        </div>
-        <div class="day-item nighticon">
-         <img src="/static/img/w/icon/w0.png">
-        </div>
-        <div class="day-item">
-         晴
-        </div>
-        <div class="day-item">
-         东北风
-        </div>
-        <div class="day-item">
-         微风
-        </div>
-       </div>
-      </div>
-      <div class="mt15">
-       <table class="hour-table" id="hourTable_0" style="">
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>18.9℃</td>
-          <td>17.8℃</td>
-          <td>17.9℃</td>
-          <td>23.7℃</td>
-          <td>28.8℃</td>
-          <td>32.3℃</td>
-          <td>32.1℃</td>
-          <td>26.5℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>1mm</td>
-          <td>0.5mm</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>3m/s</td>
-          <td>2.9m/s</td>
-          <td>3.3m/s</td>
-          <td>3.3m/s</td>
-          <td>0.8m/s</td>
-          <td>1.6m/s</td>
-          <td>1.2m/s</td>
-          <td>3.3m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>东南风</td>
-          <td>东南风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>876.5hPa</td>
-          <td>876.1hPa</td>
-          <td>875.9hPa</td>
-          <td>876.6hPa</td>
-          <td>875.8hPa</td>
-          <td>874.4hPa</td>
-          <td>871.7hPa</td>
-          <td>872.4hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>85.5%</td>
-          <td>93.1%</td>
-          <td>96.9%</td>
-          <td>75.4%</td>
-          <td>64.1%</td>
-          <td>48.6%</td>
-          <td>45.8%</td>
-          <td>40.8%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>1.2%</td>
-          <td>4.4%</td>
-          <td>10%</td>
-          <td>10%</td>
-          <td>54.2%</td>
-          <td>1.6%</td>
-          <td>70%</td>
-          <td>84.4%</td>
-         </tr>
-        </tbody>
-       </table>
-       <table class="hour-table" id="hourTable_1" >
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>23.7℃</td>
-          <td>28.8℃</td>
-          <td>32.3℃</td>
-          <td>32.1℃</td>
-          <td>26.5℃</td>
-          <td>22.3℃</td>
-          <td>18.3℃</td>
-          <td>16.6℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>1mm</td>
-          <td>0.5mm</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>3.3m/s</td>
-          <td>0.8m/s</td>
-          <td>1.6m/s</td>
-          <td>1.2m/s</td>
-          <td>3.3m/s</td>
-          <td>2.7m/s</td>
-          <td>2.5m/s</td>
-          <td>2.1m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>东南风</td>
-          <td>东南风</td>
-          <td>东北风</td>
-          <td>西北风</td>
-          <td>东北风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>876.6hPa</td>
-          <td>875.8hPa</td>
-          <td>874.4hPa</td>
-          <td>871.7hPa</td>
-          <td>872.4hPa</td>
-          <td>874.9hPa</td>
-          <td>875hPa</td>
-          <td>873.5hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>75.4%</td>
-          <td>64.1%</td>
-          <td>48.6%</td>
-          <td>45.8%</td>
-          <td>40.8%</td>
-          <td>91.7%</td>
-          <td>90.1%</td>
-          <td>88.6%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>10%</td>
-          <td>54.2%</td>
-          <td>1.6%</td>
-          <td>70%</td>
-          <td>84.4%</td>
-          <td>79.9%</td>
-          <td>79.9%</td>
-          <td>79.9%</td>
-         </tr>
-        </tbody>
-       </table>
-       <table class="hour-table" id="hourTable_2" >
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w8.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>20.9℃</td>
-          <td>22.7℃</td>
-          <td>26.8℃</td>
-          <td>28.3℃</td>
-          <td>22.7℃</td>
-          <td>19℃</td>
-          <td>15.7℃</td>
-          <td>15.5℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>无降水</td>
-          <td>6.2mm</td>
-          <td>0.8mm</td>
-          <td>0.1mm</td>
-          <td>1mm</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>3.3m/s</td>
-          <td>2.3m/s</td>
-          <td>3.3m/s</td>
-          <td>2.2m/s</td>
-          <td>2.1m/s</td>
-          <td>3m/s</td>
-          <td>2m/s</td>
-          <td>3.3m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>西南风</td>
-          <td>东南风</td>
-          <td>东南风</td>
-          <td>东南风</td>
-          <td>东南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>874.1hPa</td>
-          <td>874.1hPa</td>
-          <td>873.6hPa</td>
-          <td>872.2hPa</td>
-          <td>873.1hPa</td>
-          <td>874hPa</td>
-          <td>873.4hPa</td>
-          <td>873.7hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>87.6%</td>
-          <td>80.9%</td>
-          <td>66.4%</td>
-          <td>63%</td>
-          <td>56.7%</td>
-          <td>90.9%</td>
-          <td>87.7%</td>
-          <td>86.5%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>79.9%</td>
-          <td>80.7%</td>
-          <td>65%</td>
-          <td>65%</td>
-          <td>70%</td>
-          <td>70.5%</td>
-          <td>10.1%</td>
-          <td>10.1%</td>
-         </tr>
-        </tbody>
-       </table>
-       <table class="hour-table" id="hourTable_3" >
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>19.7℃</td>
-          <td>25.1℃</td>
-          <td>27.9℃</td>
-          <td>29.8℃</td>
-          <td>23.2℃</td>
-          <td>21.9℃</td>
-          <td>20.1℃</td>
-          <td>16.7℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>3m/s</td>
-          <td>2.7m/s</td>
-          <td>3.3m/s</td>
-          <td>3.2m/s</td>
-          <td>2.7m/s</td>
-          <td>3.3m/s</td>
-          <td>0.5m/s</td>
-          <td>0.2m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>东南风</td>
-          <td>东南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>875.1hPa</td>
-          <td>874.9hPa</td>
-          <td>874.1hPa</td>
-          <td>873.2hPa</td>
-          <td>874.9hPa</td>
-          <td>876.7hPa</td>
-          <td>876.6hPa</td>
-          <td>877.3hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>85.4%</td>
-          <td>75.5%</td>
-          <td>58.1%</td>
-          <td>53.5%</td>
-          <td>48.3%</td>
-          <td>95.7%</td>
-          <td>91.3%</td>
-          <td>90.7%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>10.1%</td>
-          <td>2.1%</td>
-          <td>2.1%</td>
-          <td>10%</td>
-          <td>10%</td>
-          <td>13.4%</td>
-          <td>25.1%</td>
-          <td>10.1%</td>
-         </tr>
-        </tbody>
-       </table>
-       <table class="hour-table" id="hourTable_4" >
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w1.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>20.9℃</td>
-          <td>24.3℃</td>
-          <td>27.4℃</td>
-          <td>28.8℃</td>
-          <td>26.1℃</td>
-          <td>22.5℃</td>
-          <td>18.5℃</td>
-          <td>15.8℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>2.5mm</td>
-          <td>2.4mm</td>
-          <td>2.5mm</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>1.6m/s</td>
-          <td>7.6m/s</td>
-          <td>7.1m/s</td>
-          <td>7.9m/s</td>
-          <td>7.9m/s</td>
-          <td>0.8m/s</td>
-          <td>0.8m/s</td>
-          <td>1.1m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>东南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>东南风</td>
-          <td>东北风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>878.4hPa</td>
-          <td>878.3hPa</td>
-          <td>877.3hPa</td>
-          <td>876.1hPa</td>
-          <td>877.8hPa</td>
-          <td>879.4hPa</td>
-          <td>879.1hPa</td>
-          <td>879.1hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>90.1%</td>
-          <td>75.1%</td>
-          <td>72.4%</td>
-          <td>66.2%</td>
-          <td>57.9%</td>
-          <td>91.3%</td>
-          <td>96.3%</td>
-          <td>94.6%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>69.2%</td>
-          <td>79.9%</td>
-          <td>79.9%</td>
-          <td>79.9%</td>
-          <td>79.9%</td>
-          <td>96.8%</td>
-          <td>92.7%</td>
-          <td>70%</td>
-         </tr>
-        </tbody>
-       </table>
-       <table class="hour-table" id="hourTable_5" >
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w8.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w7.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w8.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>19.6℃</td>
-          <td>19.6℃</td>
-          <td>23.2℃</td>
-          <td>24.1℃</td>
-          <td>21℃</td>
-          <td>18.5℃</td>
-          <td>16.7℃</td>
-          <td>14.9℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>2.4mm</td>
-          <td>1mm</td>
-          <td>5.3mm</td>
-          <td>0.7mm</td>
-          <td>3mm</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>3.3m/s</td>
-          <td>3.3m/s</td>
-          <td>1m/s</td>
-          <td>1.3m/s</td>
-          <td>1m/s</td>
-          <td>2.2m/s</td>
-          <td>2.6m/s</td>
-          <td>2.7m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西北风</td>
-          <td>西北风</td>
-          <td>西北风</td>
-          <td>西北风</td>
-          <td>西北风</td>
-          <td>西北风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>879.7hPa</td>
-          <td>879.1hPa</td>
-          <td>878.4hPa</td>
-          <td>878.2hPa</td>
-          <td>878hPa</td>
-          <td>877.6hPa</td>
-          <td>877.2hPa</td>
-          <td>877.6hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>92.8%</td>
-          <td>91.1%</td>
-          <td>86.6%</td>
-          <td>82.2%</td>
-          <td>64.8%</td>
-          <td>96.6%</td>
-          <td>96.6%</td>
-          <td>91.6%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>78.8%</td>
-          <td>78.4%</td>
-          <td>78%</td>
-          <td>78.5%</td>
-          <td>79.1%</td>
-          <td>10%</td>
-          <td>2.1%</td>
-          <td>2.5%</td>
-         </tr>
-        </tbody>
-       </table>
-       <table class="hour-table" id="hourTable_6" >
-        <tbody>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-time"></i> 时间</td>
-          <td>08:00</td>
-          <td>11:00</td>
-          <td>14:00</td>
-          <td>17:00</td>
-          <td>20:00</td>
-          <td>23:00</td>
-          <td>02:00</td>
-          <td>05:00</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-tianqi"></i> 天气</td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-          <td class="wicon"><img src="/static/img/w/icon/w0.png"></td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-temp"></i> 气温</td>
-          <td>18.6℃</td>
-          <td>21.7℃</td>
-          <td>24.6℃</td>
-          <td>25.5℃</td>
-          <td>20.8℃</td>
-          <td>16.4℃</td>
-          <td>15.2℃</td>
-          <td>15.3℃</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-raindrops"></i> 降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-          <td>无降水</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-Windpower"></i> 风速</td>
-          <td>3.3m/s</td>
-          <td>2.7m/s</td>
-          <td>1.7m/s</td>
-          <td>3.3m/s</td>
-          <td>1.9m/s</td>
-          <td>3.1m/s</td>
-          <td>3.2m/s</td>
-          <td>2.8m/s</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-fengxiang"></i> 风向</td>
-          <td>西北风</td>
-          <td>西北风</td>
-          <td>东北风</td>
-          <td>东北风</td>
-          <td>东北风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-          <td>西南风</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-qiya"></i> 气压</td>
-          <td>878.1hPa</td>
-          <td>877.7hPa</td>
-          <td>877.2hPa</td>
-          <td>877.2hPa</td>
-          <td>877.1hPa</td>
-          <td>877.1hPa</td>
-          <td>877.1hPa</td>
-          <td>877.1hPa</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-humidity"></i> 湿度</td>
-          <td>74.3%</td>
-          <td>58.4%</td>
-          <td>48.5%</td>
-          <td>52.9%</td>
-          <td>72%</td>
-          <td>89.7%</td>
-          <td>88%</td>
-          <td>85.6%</td>
-         </tr>
-         <tr>
-          <td style="background-color:#eee;"><i class="iconfont icon-yunliang_huabanfuben"></i> 云量</td>
-          <td>2.9%</td>
-          <td>2.7%</td>
-          <td>2.5%</td>
-          <td>5.2%</td>
-          <td>7.8%</td>
-          <td>10%</td>
-          <td>10%</td>
-          <td>9.1%</td>
-         </tr>
-        </tbody>
-       </table>
-      </div>
-     </div>
-
-				<div class="updateTime">更新时间: 2024-07-10 17:11:59</div>
-				<script src="./js/document.js"></script>
-				</body>
-				</html> -->
