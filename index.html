@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>迷宫游戏</title>
     <style>
-        body, html {
+        body,
+        html {
             margin: 0;
             padding: 0;
             height: 100%;
@@ -13,12 +15,14 @@
             font-family: Arial, sans-serif;
             user-select: none;
         }
+
         #gameCanvas {
             display: block;
             width: 100%;
             height: 100%;
             background-color: #000;
         }
+
         #controls {
             position: absolute;
             bottom: 20px;
@@ -28,10 +32,13 @@
             flex-direction: column;
             align-items: center;
         }
+
         .btn-row {
             display: flex;
             justify-content: center;
+            width: 100%;
         }
+
         .btn {
             width: 15vmin;
             height: 15vmin;
@@ -41,42 +48,60 @@
             font-size: 5vmin;
             border: none;
             border-radius: 50%;
-            background-color: rgba(255,255,255,0.3);
+            background-color: rgba(255, 255, 255, 0.3);
             color: white;
             touch-action: manipulation;
         }
+
         .btn:active {
-            background-color: rgba(255,255,255,0.5);
+            background-color: rgba(255, 255, 255, 0.5);
         }
+
+        #leftBtn {
+            margin-right: 20vmin;
+        }
+
+        #rightBtn {
+            margin-left: 20vmin;
+        }
+
         #functionArea {
             position: absolute;
             top: 20px;
             right: 20px;
             text-align: center;
         }
+
         #modal {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(0,0,0,0.8);
+            background-color: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 10px;
             text-align: center;
             color: white;
         }
+
         #modal button {
             margin: 10px;
             padding: 10px 20px;
             font-size: 4vmin;
         }
+
         #difficultySelect {
             margin-top: 10px;
             font-size: 4vmin;
         }
+
+        #confirmBtn {
+            display: none;
+        }
     </style>
 </head>
+
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="controls">
@@ -106,6 +131,7 @@
                 <option value="hard">困难</option>
             </select>
         </div>
+        <button id="confirmBtn">确定</button>
     </div>
 
     <script>
@@ -117,6 +143,7 @@
         const nextBtn = document.getElementById('nextBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const difficultySelect = document.getElementById('difficultySelect');
+        const confirmBtn = document.getElementById('confirmBtn');
 
         let player, maze, cellSize, startCell, endCell;
         let level = 1;
@@ -124,11 +151,12 @@
         let moveInterval = null;
         let currentMove = null;
         let difficulty = 'normal';
+        let difficultyChanged = false;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            
+
             initLevel();
         }
 
@@ -151,9 +179,9 @@
                     mazeHeight = Math.floor(canvas.height / 20);
                     break;
             }
-            
+
             cellSize = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight);
-            
+
             maze = generateMaze(mazeWidth, mazeHeight);
             startCell = {x: 1, y: 1};
             endCell = {x: mazeWidth - 2, y: mazeHeight - 2};
@@ -250,7 +278,11 @@
 
         function completeLevel() {
             gameState = 'completed';
-            modalTitle.textContent = `第 ${level} 关完成！`;
+            modalTitle.textContent = `恭喜！第 ${level} 关完成！`;
+            resetBtn.style.display = 'inline-block';
+            nextBtn.style.display = 'inline-block';
+            difficultySelect.style.display = 'none';
+            confirmBtn.style.display = 'none';
             modal.style.display = 'block';
         }
 
@@ -270,7 +302,11 @@
         function togglePause() {
             if (gameState === 'playing') {
                 gameState = 'paused';
-                modalTitle.textContent = '功能';
+                modalTitle.textContent = '游戏暂停';
+                resetBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
+                difficultySelect.style.display = 'inline-block';
+                confirmBtn.style.display = 'none';
                 modal.style.display = 'block';
             } else if (gameState === 'paused') {
                 gameState = 'playing';
@@ -301,13 +337,23 @@
         nextBtn.addEventListener('click', nextLevel);
 
         difficultySelect.addEventListener('change', (e) => {
-            difficulty = e.target.value;
-            initLevel();
+            difficultyChanged = true;
+            confirmBtn.style.display = 'inline-block';
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            if (difficultyChanged) {
+                difficulty = difficultySelect.value;
+                initLevel();
+                difficultyChanged = false;
+            }
+            gameState = 'playing';
+            modal.style.display = 'none';
         });
 
         document.addEventListener('keydown', (e) => {
             if (currentMove) return;
-            switch(e.key) {
+            switch (e.key) {
                 case 'ArrowUp': startMove(0, -1); break;
                 case 'ArrowDown': startMove(0, 1); break;
                 case 'ArrowLeft': startMove(-1, 0); break;
@@ -325,4 +371,5 @@
         gameLoop();
     </script>
 </body>
+
 </html>
