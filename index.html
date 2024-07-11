@@ -99,6 +99,17 @@
         #confirmBtn {
             display: none;
         }
+
+        #closeBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -120,6 +131,7 @@
         <button id="pauseBtn" class="btn">||</button>
     </div>
     <div id="modal">
+        <button id="closeBtn">×</button>
         <h2 id="modalTitle"></h2>
         <button id="resetBtn">回起点</button>
         <button id="nextBtn">下一关</button>
@@ -144,6 +156,7 @@
         const pauseBtn = document.getElementById('pauseBtn');
         const difficultySelect = document.getElementById('difficultySelect');
         const confirmBtn = document.getElementById('confirmBtn');
+        const closeBtn = document.getElementById('closeBtn');
 
         let player, maze, cellSize, startCell, endCell;
         let level = 1;
@@ -152,6 +165,7 @@
         let currentMove = null;
         let difficulty = 'normal';
         let difficultyChanged = false;
+        let longPressTimer = null;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -184,7 +198,7 @@
 
             maze = generateMaze(mazeWidth, mazeHeight);
             startCell = {x: 1, y: 1};
-            endCell = {x: mazeWidth - 2, y: mazeHeight - 2};
+            endCell = findEndCell(maze);
             player = {...startCell};
         }
 
@@ -212,6 +226,17 @@
             }
 
             return maze;
+        }
+
+        function findEndCell(maze) {
+            let endCell;
+            do {
+                endCell = {
+                    x: Math.floor(Math.random() * (maze[0].length - 2)) + 1,
+                    y: Math.floor(Math.random() * (maze.length - 2)) + 1
+                };
+            } while (maze[endCell.y][endCell.x] !== 0 || (endCell.x === startCell.x && endCell.y === startCell.y));
+            return endCell;
         }
 
         function drawMaze() {
@@ -265,13 +290,19 @@
             if (moveInterval) clearInterval(moveInterval);
             currentMove = {dx, dy};
             movePlayer(dx, dy);
-            moveInterval = setInterval(() => movePlayer(dx, dy), 150);
+            longPressTimer = setTimeout(() => {
+                moveInterval = setInterval(() => movePlayer(dx, dy), 150);
+            }, 80); // 长按延迟缩短到 250 毫秒
         }
 
         function stopMove() {
             if (moveInterval) {
                 clearInterval(moveInterval);
                 moveInterval = null;
+            }
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
             }
             currentMove = null;
         }
@@ -303,15 +334,19 @@
             if (gameState === 'playing') {
                 gameState = 'paused';
                 modalTitle.textContent = '游戏暂停';
-                resetBtn.style.display = 'none';
-                nextBtn.style.display = 'none';
+                resetBtn.style.display = 'inline-block';
+                nextBtn.style.display = 'inline-block';
                 difficultySelect.style.display = 'inline-block';
                 confirmBtn.style.display = 'none';
                 modal.style.display = 'block';
             } else if (gameState === 'paused') {
-                gameState = 'playing';
-                modal.style.display = 'none';
+                resumeGame();
             }
+        }
+
+        function resumeGame() {
+            gameState = 'playing';
+            modal.style.display = 'none';
         }
 
         function gameLoop() {
@@ -335,6 +370,7 @@
         pauseBtn.addEventListener('click', togglePause);
         resetBtn.addEventListener('click', resetLevel);
         nextBtn.addEventListener('click', nextLevel);
+        closeBtn.addEventListener('click', resumeGame);
 
         difficultySelect.addEventListener('change', (e) => {
             difficultyChanged = true;
@@ -347,8 +383,7 @@
                 initLevel();
                 difficultyChanged = false;
             }
-            gameState = 'playing';
-            modal.style.display = 'none';
+            resumeGame();
         });
 
         document.addEventListener('keydown', (e) => {
